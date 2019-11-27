@@ -1,0 +1,12 @@
+plugins {
+    id 'java-library'
+}
+
+repositories {
+    jcenter()
+}
+
+dependencies {
+	compile group: 'org.apache.commons', name: 'commons-csv', version: '1.7'
+	testImplementation 'junit:junit:4.12'
+}
