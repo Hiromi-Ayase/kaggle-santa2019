@@ -17,35 +17,74 @@ import org.apache.commons.csv.CSVRecord;
 
 public class Santa2019 {
 
-  private static long TIME_LIMIT = 100000;
-  private static long NOT_UPDATED = 1000;
-  private static int ALPHA = 30000;
-  private static String OUTPUT_NAME = "data/submission_%d.csv";
+  // private static long TIME_LIMIT = 10000;
+  // private static long NOT_UPDATED = 200;
+  // private static int ALPHA = 50000;
+  // private static int EPOCH_LOOP = 50;
+
+  private static long TIME_LIMIT = 10000;
+  private static long NOT_UPDATED = 100;
+  private static int ALPHA = 50000;
+  private static int EPOCH_LOOP = 50;
 
   public static void main(String[] args) throws IOException {
     Path inputPath = Paths.get("data/family_data.csv");
-    Path outputPath = Paths.get("data/submission_1574882276520.csv");
+    Path outputPath = Paths.get("data/submission_1574898475215.csv");
     int[][] input = readInput(inputPath);
     int[] output = readOutput(outputPath);
 
-    int[][] state = Solver.outputToState(input, output);
-    double bestScore = Solver.getScore(input, state);
+    int[][] state = Solver.output2state(input, output);
+    int[][] costs = Solver.input2costs(input);
+
+    double bestScore = Solver.getScore(costs, state);
     for (int e = 0;; e++) {
       System.out.printf("***** Epoch: %d *****%n", e);
-      for (int t = 0; t < 10; t++) {
-        state = Solver.solve(input, state, TIME_LIMIT, ALPHA, NOT_UPDATED);
+      for (int t = 0; t < EPOCH_LOOP; t++) {
+        state = Solver.solve(costs, state, TIME_LIMIT, ALPHA, NOT_UPDATED);
       }
-      double score = Solver.getScore(input, state);
+      double score = Solver.getScore(costs, state);
+
+      dump(input, state);
+      System.out.println("Current Score: " + score);
+
       if (bestScore > score) {
         bestScore = score;
         String name = saveOutput(state[0]);
-        System.out.printf("High score: %.3f. Saved to %s%n", bestScore, name);
+        System.out.printf("High score!!: %.3f. Saved to %s%n", bestScore, name);
       }
     }
   }
 
+  private static void dump(int[][] input, int[][] state) {
+    int n = input.length;
+    int choice = 10;
+    StringBuilder[] sbs = new StringBuilder[choice + 1];
+    int[] cnt = new int[choice + 1];
+    for (int i = 0; i <= choice; i++) {
+      sbs[i] = new StringBuilder();
+    }
+    for (int f = 0; f < n; f++) {
+      int c = input[f][state[0][f]];
+      sbs[c].append(f + ", ");
+      cnt[c]++;
+    }
+
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i <= 10; i++) {
+      sb.append(i + "(" + cnt[i] + "):");
+      if (i < 3) {
+        sb.append("(omitted)");
+      } else {
+        sb.append(sbs[i]);
+      }
+      sb.append("\n");
+    }
+    System.out.print(sb);
+  }
+
   private static String saveOutput(int[] output) throws IOException {
-    String outputName = String.format(OUTPUT_NAME, System.currentTimeMillis());
+    String outputNameTemplate = "data/submission_%d.csv";
+    String outputName = String.format(outputNameTemplate, System.currentTimeMillis());
     try (BufferedWriter bw = Files.newBufferedWriter(Paths.get(outputName));
         CSVPrinter printer = CSVFormat.DEFAULT.print(bw)) {
       printer.print("family_id");
@@ -76,8 +115,6 @@ public class Santa2019 {
 
   private static int[][] readInput(Path inputPath) throws IOException {
     int choice = 10;
-    int[] costTableA = {0, 50, 50, 100, 200, 200, 300, 300, 400, 500, 500};
-    int[] costTableB = {0, 0, 9, 9, 9, 18, 18, 36, 36, 36 + 199, 36 + 398};
     int day = 100;
     List<int[]> ret = new ArrayList<>();
     try (BufferedReader br = Files.newBufferedReader(inputPath);
@@ -85,11 +122,11 @@ public class Santa2019 {
       for (CSVRecord record : parser) {
         int[] rec = new int[day + 1];
         int people = Integer.parseInt(record.get(choice + 1));
-        Arrays.fill(rec, costTableA[choice] + costTableB[choice] * people);
+        Arrays.fill(rec, choice);
 
         for (int i = 0; i < choice; i++) {
           int d = Integer.parseInt(record.get(i + 1));
-          rec[d] = costTableA[i] + costTableB[i] * people;
+          rec[d] = i;
         }
         rec[0] = people;
         ret.add(rec);

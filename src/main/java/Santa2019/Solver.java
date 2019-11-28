@@ -4,7 +4,7 @@ import java.util.Arrays;
 
 
 public class Solver {
-  private static class Xor128 {
+  public static class Xor128 {
     private int x = 123456789, y = 362436069, z = 521288629, w = 88675123;
 
     public int next(int max) {
@@ -24,43 +24,42 @@ public class Solver {
   private static double INF = Double.MAX_VALUE / 10000;
   private static int RATE = 1000000000;
 
-  public static int[][] solve(int[][] input, int[][] state, long timeLimit, long alpha,
+  public static int[][] solve(int[][] costs, int[][] state, long timeLimit, long alpha,
       long notUpdated) {
     int[][] bestState = state;
-    double bestScore = getScore(input, state);
+    double bestScore = getScore(costs, state);
     double currentScore = bestScore;
 
-    int n = input.length;
+    int n = costs.length;
 
     long start = System.currentTimeMillis();
     long lap = start;
     long lastUpdated = start;
 
     for (int e = 1; lap - start < timeLimit && lap - lastUpdated < notUpdated; e++) {
-      if (e % 10000 == 0) {
+      if (e % 100 == 0) {
         lap = System.currentTimeMillis();
       }
       boolean forceNext = RATE * (timeLimit - (lap - start)) > timeLimit * RAND.next(RATE) * alpha;
 
-      int type = 0;
-      if (type == 0) {
-        int family = RAND.next(n);
-        int newDay = RAND.next(DAY) + 1;
-        double scoreDiff = diffChange(input, state, family, newDay);
-        if (scoreDiff < 0 || scoreDiff < INF && forceNext) {
-          state = change(input, state, family, newDay);
-          currentScore = getScore(input, state);
-        }
-      } else {
-        int family1 = RAND.next(n);
-        int family2 = RAND.next(n);
-        double scoreDiff = diffSwap(input, bestState, family1, family2);
-        if (scoreDiff < 0 || scoreDiff < INF && forceNext) {
-          state = swap(input, state, family1, family2);
-          currentScore = getScore(input, state);
+      int[][] p = new int[n][2];
+      int sum = 0;
+      for (int i = 0; i < n; i++) {
+        p[i][0] = i;
+        p[i][1] = costs[i][state[0][i]];
+        if (state[0][i] == 10) {
+          sum += p[i][1];
         }
       }
+      Arrays.sort(p, (o1, o2) -> o2[1] - o1[1]);
 
+      int family = p[RAND.next(500)][0];
+      int newDay = RAND.next(DAY) + 1;
+      double scoreDiff = diffChange(costs, state, family, newDay);
+      if (scoreDiff < 0 || scoreDiff < INF && forceNext) {
+        state = change(costs, state, family, newDay);
+        currentScore = getScore(costs, state);
+      }
 
       if (currentScore < bestScore) {
         bestState = state;
@@ -69,42 +68,15 @@ public class Solver {
         System.out.printf("Score:%.3f%n", bestScore);
       }
     }
-    long end = System.currentTimeMillis();
-    System.out.printf("%d [ms]%n", end - start);
+
     return bestState;
   }
 
-  private static double diffSwap(int[][] input, int[][] state, int family1, int family2) {
-    if (family1 == family2) {
-      return INF;
-    }
-    int day1 = state[0][family1];
-    int day2 = state[0][family2];
-    if (Math.abs(day1 - day2) <= 3) {
-      return INF;
-    }
-
-    double ret = 0;
-    ret += diffChange(input, state, family1, day2);
-    ret += diffChange(input, state, family2, day1);
-    return ret;
-  }
-
-  private static int[][] swap(int[][] input, int[][] state, int family1, int family2) {
-    int[][] ret = new int[][] {Arrays.copyOf(state[0], state[0].length),
-        Arrays.copyOf(state[1], state[1].length)};
-    int day1 = state[0][family1];
-    int day2 = state[0][family2];
-    change(input, state, family1, day2);
-    change(input, state, family2, day1);
-    return ret;
-  }
-
-  private static int[][] change(int[][] input, int[][] state, int family, int newDay) {
+  private static int[][] change(int[][] costs, int[][] state, int family, int newDay) {
     int[][] ret = new int[][] {Arrays.copyOf(state[0], state[0].length),
         Arrays.copyOf(state[1], state[1].length)};
     int oldDay = state[0][family];
-    int people = input[family][0];
+    int people = costs[family][0];
 
     ret[0][family] = newDay;
     ret[1][oldDay] -= people;
@@ -113,14 +85,14 @@ public class Solver {
   }
 
 
-  private static double diffChange(int[][] input, int[][] state, int family, int newDay) {
+  private static double diffChange(int[][] costs, int[][] state, int family, int newDay) {
     double ret = 0;
     int oldDay = state[0][family];
     if (oldDay == newDay) {
       return 0;
     }
-    int people = input[family][0];
-    ret += input[family][newDay] - input[family][oldDay];
+    int people = costs[family][0];
+    ret += costs[family][newDay] - costs[family][oldDay];
 
     if (oldDay > 1) {
       int preCnt = state[1][oldDay - 1];
@@ -189,13 +161,13 @@ public class Solver {
     return ret;
   }
 
-  public static double getScore(int[][] input, int[][] state) {
-    int people = input.length;
+  public static double getScore(int[][] costs, int[][] state) {
+    int people = costs.length;
 
     int cost = 0;
     for (int i = 0; i < people; i++) {
       int d = state[0][i];
-      cost += input[i][d];
+      cost += costs[i][d];
     }
 
     double penalty = 0;
@@ -209,7 +181,7 @@ public class Solver {
     return cost + penalty;
   }
 
-  public static int[][] outputToState(int[][] input, int[] output) {
+  public static int[][] output2state(int[][] input, int[] output) {
     int[] count = new int[DAY + 1];
     int n = output.length;
     for (int family = 0; family < n; family++) {
@@ -217,6 +189,23 @@ public class Solver {
       count[d] += input[family][0];;
     }
     return new int[][] {Arrays.copyOf(output, n), count};
+  }
+
+  public static int[][] input2costs(int[][] input) {
+    int n = input.length;
+    int[][] costs = new int[n][DAY + 1];
+    int[] costTableA = {0, 50, 50, 100, 200, 200, 300, 300, 400, 500, 500};
+    int[] costTableB = {0, 0, 9, 9, 9, 18, 18, 36, 36, 36 + 199, 36 + 398};
+
+    for (int f = 0; f < n; f++) {
+      int p = input[f][0];
+      costs[f][0] = p;
+      for (int d = 1; d <= DAY; d++) {
+        int c = input[f][d];
+        costs[f][d] = costTableA[c] + costTableB[c] * p;
+      }
+    }
+    return costs;
   }
 }
 
