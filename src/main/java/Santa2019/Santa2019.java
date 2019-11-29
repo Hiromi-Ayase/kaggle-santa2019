@@ -22,40 +22,51 @@ public class Santa2019 {
   // private static int ALPHA = 50000;
   // private static int EPOCH_LOOP = 50;
 
+  // private static long TIME_LIMIT = 120000;
+  // private static long NOT_UPDATED = 20000;
+  // private static double START_TEMP = 7;
+  // private static double END_TEMP = 1;
+
   private static long TIME_LIMIT = 10000;
-  private static long NOT_UPDATED = 100;
-  private static int ALPHA = 50000;
-  private static int EPOCH_LOOP = 50;
+  private static long NOT_UPDATED = 200;
+  private static double START_TEMP = 7;
+  private static double END_TEMP = 1;
 
   public static void main(String[] args) throws IOException {
     Path inputPath = Paths.get("data/family_data.csv");
-    Path outputPath = Paths.get("data/submission_1574898475215.csv");
+    Path outputPath = Paths.get("data/submission_1574977820040_72596.csv");
     int[][] input = readInput(inputPath);
     int[] output = readOutput(outputPath);
+    // output = initOutput(output.length);
+    State state = new State(input, output);
 
-    int[][] state = Solver.output2state(input, output);
-    int[][] costs = Solver.input2costs(input);
-
-    double bestScore = Solver.getScore(costs, state);
+    double bestScore = state.getScore(true);
     for (int e = 0;; e++) {
+      boolean main = e % 5 != 0;
+
       System.out.printf("***** Epoch: %d *****%n", e);
-      for (int t = 0; t < EPOCH_LOOP; t++) {
-        state = Solver.solve(costs, state, TIME_LIMIT, ALPHA, NOT_UPDATED);
-      }
-      double score = Solver.getScore(costs, state);
+      state = Solver.solve(state, TIME_LIMIT, START_TEMP, END_TEMP, NOT_UPDATED, main);
+      double score = state.getScore(true);
 
       dump(input, state);
-      System.out.println("Current Score: " + score);
 
       if (bestScore > score) {
         bestScore = score;
-        String name = saveOutput(state[0]);
+        String name = saveOutput(state.getAttend(), (int) bestScore);
         System.out.printf("High score!!: %.3f. Saved to %s%n", bestScore, name);
       }
     }
   }
 
-  private static void dump(int[][] input, int[][] state) {
+  private static int[] initOutput(int n) {
+    int[] ret = new int[n];
+    for (int i = 0; i < n; i++) {
+      ret[i] = i % State.MAX_DAY + 1;
+    }
+    return ret;
+  }
+
+  private static void dump(int[][] input, State state) {
     int n = input.length;
     int choice = 10;
     StringBuilder[] sbs = new StringBuilder[choice + 1];
@@ -63,15 +74,20 @@ public class Santa2019 {
     for (int i = 0; i <= choice; i++) {
       sbs[i] = new StringBuilder();
     }
+    int[] attend = state.getAttend();
+    int[][] costs = state.getCosts();
+    int[] cost = new int[choice + 1];
     for (int f = 0; f < n; f++) {
-      int c = input[f][state[0][f]];
+      int d = attend[f];
+      int c = input[f][d];
       sbs[c].append(f + ", ");
       cnt[c]++;
+      cost[c] += costs[f][d];
     }
 
     StringBuilder sb = new StringBuilder();
     for (int i = 0; i <= 10; i++) {
-      sb.append(i + "(" + cnt[i] + "):");
+      sb.append(String.format("%02d [Count:%04d, Cost:%05d]: ", i, cnt[i], cost[i]));
       if (i < 3) {
         sb.append("(omitted)");
       } else {
@@ -79,12 +95,18 @@ public class Santa2019 {
       }
       sb.append("\n");
     }
+    int[] occ = state.getOccupancy();
+    for (int i = 1; i <= 100; i++) {
+      sb.append(i + ":" + occ[i] + ", ");
+    }
+    sb.append("\n");
+    sb.append(String.format("Current score: %.3f%n", state.getScore(true)));
     System.out.print(sb);
   }
 
-  private static String saveOutput(int[] output) throws IOException {
-    String outputNameTemplate = "data/submission_%d.csv";
-    String outputName = String.format(outputNameTemplate, System.currentTimeMillis());
+  private static String saveOutput(int[] output, int score) throws IOException {
+    String outputNameTemplate = "data/submission_%d_%d.csv";
+    String outputName = String.format(outputNameTemplate, System.currentTimeMillis(), score);
     try (BufferedWriter bw = Files.newBufferedWriter(Paths.get(outputName));
         CSVPrinter printer = CSVFormat.DEFAULT.print(bw)) {
       printer.print("family_id");
