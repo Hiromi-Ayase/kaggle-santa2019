@@ -27,6 +27,7 @@ public class State {
   }
 
   private final int[][] costs;
+  private final int[][] cand;
   private final int[][] state;
 
   private int currentCost;
@@ -34,6 +35,7 @@ public class State {
   public State(int[][] input, int[] output) {
     this.costs = input2costs(input);
     this.state = output2state(input, output);
+    this.cand = input2cand(input);
 
     int people = input.length;
     for (int i = 0; i < people; i++) {
@@ -44,6 +46,8 @@ public class State {
 
   private State(State state) {
     this.costs = state.costs;
+    this.cand = state.cand;
+
     this.state = new int[][] {Arrays.copyOf(state.state[0], state.state[0].length),
         Arrays.copyOf(state.state[1], state.state[1].length)};
     this.currentCost = state.currentCost;
@@ -55,50 +59,52 @@ public class State {
 
 
   public double getScore(boolean flg) {
-    if (flg) {
-      double penalty = 0;
-      for (int d = 1; d <= MAX_DAY; d++) {
-        int n = state[1][d];
-        if (n < 125 || n > 300)
-          return INF;
-        int m = state[1][Math.min(MAX_DAY, d + 1)];
-        penalty += PENALTY_TABLE[n][m];
-      }
-      return currentCost + penalty;
-    } else {
-      int margin = 10;
-      double pena2 = 0;
-      double penalty = 0;
-      for (int d = 1; d <= MAX_DAY; d++) {
-        int n = state[1][d];
-        if (n < 125 || n > 300)
-          return INF;
+    double penalty = 0;
+    for (int d = 1; d <= MAX_DAY; d++) {
+      int n = state[1][d];
+      if (n < OCCUPANCY_MIN || n > OCCUPANCY_MAX)
+        return INF;
+      int m = state[1][Math.min(MAX_DAY, d + 1)];
+      penalty += PENALTY_TABLE[n][m];
+    }
 
+    double penalty2 = 0;
+    if (!flg) {
+      int margin = 50;
+      for (int d = 1; d <= MAX_DAY; d++) {
+        int n = state[1][d];
         double diff = 0;
         if (n < OCCUPANCY_MIN + margin) {
           diff = OCCUPANCY_MIN + margin - n;
         } else if (n > OCCUPANCY_MAX - margin) {
           diff = n - (OCCUPANCY_MAX - margin);
         }
-        pena2 += diff * diff;
-
-        int m = state[1][Math.min(MAX_DAY, d + 1)];
-        penalty += PENALTY_TABLE[n][m];
+        penalty2 += diff * diff;
       }
-      return currentCost + pena2 * 10 + penalty;
     }
-
+    return currentCost + penalty2 / 10 + penalty;
   }
 
-  public void change(int family, int newDay) {
+  public boolean check(int family, int newDay) {
     int oldDay = state[0][family];
     int people = costs[family][0];
+    if (state[1][oldDay] < OCCUPANCY_MIN || state[1][newDay] + people > OCCUPANCY_MAX) {
+      return false;
+    }
+    return true;
+  }
 
+  public boolean change(int family, int newDay) {
+    int oldDay = state[0][family];
+    int people = costs[family][0];
+    if (state[1][oldDay] < OCCUPANCY_MIN || state[1][newDay] + people > OCCUPANCY_MAX) {
+      return false;
+    }
     state[0][family] = newDay;
     state[1][oldDay] -= people;
     state[1][newDay] += people;
-
     currentCost += costs[family][newDay] - costs[family][oldDay];
+    return true;
   }
 
   public int familySize() {
@@ -115,6 +121,10 @@ public class State {
 
   public int[][] getCosts() {
     return costs;
+  }
+
+  public int[][] getCand() {
+    return cand;
   }
 
   public static int[][] output2state(int[][] input, int[] output) {
@@ -142,5 +152,21 @@ public class State {
       }
     }
     return costs;
+  }
+
+  private static int[][] input2cand(int[][] input) {
+    int n = input.length;
+    int candMax = 10;
+    int[][] cand = new int[n][candMax];
+
+    for (int f = 0; f < n; f++) {
+      for (int d = 1; d <= MAX_DAY; d++) {
+        int c = input[f][d];
+        if (c < candMax) {
+          cand[f][c] = d;
+        }
+      }
+    }
+    return cand;
   }
 }

@@ -27,14 +27,15 @@ public class Santa2019 {
   // private static double START_TEMP = 7;
   // private static double END_TEMP = 1;
 
-  private static long TIME_LIMIT = 10000;
-  private static long NOT_UPDATED = 200;
-  private static double START_TEMP = 7;
-  private static double END_TEMP = 1;
+  private static long TIME_LIMIT = 60000;
+  private static long NOT_UPDATED = 20000;
+  private static double START_TEMP = 15;
+  private static double START_TEMP2 = 5;
+  private static double END_TEMP = 0.3;
 
   public static void main(String[] args) throws IOException {
     Path inputPath = Paths.get("data/family_data.csv");
-    Path outputPath = Paths.get("data/submission_1574977820040_72596.csv");
+    Path outputPath = Paths.get("data/submission_1575145069860_71887.csv");
     int[][] input = readInput(inputPath);
     int[] output = readOutput(outputPath);
     // output = initOutput(output.length);
@@ -42,17 +43,21 @@ public class Santa2019 {
 
     double bestScore = state.getScore(true);
     for (int e = 0;; e++) {
-      boolean main = e % 5 != 0;
+      boolean main = e % 3 == 0;
 
       System.out.printf("***** Epoch: %d *****%n", e);
-      state = Solver.solve(state, TIME_LIMIT, START_TEMP, END_TEMP, NOT_UPDATED, main);
-      double score = state.getScore(true);
+      State[] states = Solver.solve2(state, TIME_LIMIT, main ? START_TEMP2 : START_TEMP, END_TEMP,
+          NOT_UPDATED, true);
+      if (states[0].getScore(true) <= State.INF / 10) {
+        state = states[0];
+      }
+      double score = states[1].getScore(true);
 
       dump(input, state);
 
       if (bestScore > score) {
         bestScore = score;
-        String name = saveOutput(state.getAttend(), (int) bestScore);
+        String name = saveOutput(states[1].getAttend(), (int) bestScore);
         System.out.printf("High score!!: %.3f. Saved to %s%n", bestScore, name);
       }
     }
