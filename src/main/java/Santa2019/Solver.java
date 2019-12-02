@@ -21,8 +21,8 @@ public class Solver {
 
 
   public static State[] solve(State state, long timeLimit, double startTemp, double endTemp,
-      long notUpdated, boolean main) {
-    double bestScore = state.getScore(main);
+      long notUpdated) {
+    double bestScore = state.getScore();
     double currentScore = bestScore;
 
     int n = state.familySize();
@@ -56,11 +56,9 @@ public class Solver {
           count++;
 
           int oldDay = state.getAttend()[family];
-          if (!state.change(family, newDay)) {
-            continue;
-          }
+          state.change(family, newDay);
 
-          double newScore = state.getScore(main);
+          double newScore = state.getScore();
           double temp = startTemp + (endTemp - startTemp) * (lap - start) / timeLimit;
 
           if (Math.exp(-(newScore - currentScore) / temp) * RATE > RAND.next(RATE)) {
@@ -84,8 +82,8 @@ public class Solver {
   }
 
   public static State[] solve2(State state, long timeLimit, double startTemp, double endTemp,
-      long notUpdated, boolean main) {
-    double bestScore = state.getScore(main);
+      long notUpdated) {
+    double bestScore = state.getScore();
     double currentScore = bestScore;
 
     int n = state.familySize();
@@ -107,13 +105,15 @@ public class Solver {
     }
 
     State bestState = state.clone();
+
     int count = 0;
     outer: while (true) {
       shuffle(fa1);
-
       for (int family1 : fa1) {
         shuffle(fa2);
         for (int family2 : fa2) {
+          if (family1 == family2)
+            continue;
           for (int newDay1 : da[family1]) {
             for (int newDay2 : da[family2]) {
               if (lap - lastUpdated >= notUpdated
@@ -125,13 +125,10 @@ public class Solver {
               int[] attend = state.getAttend();
               int oldDay1 = attend[family1];
               int oldDay2 = attend[family2];
-              if (!state.change(family1, newDay1) || !state.change(family2, newDay2)) {
-                state.change(family1, oldDay1);
-                state.change(family2, oldDay2);
-                continue;
-              }
+              state.change(family1, newDay1);
+              state.change(family2, newDay2);
 
-              double newScore = state.getScore(main);
+              double newScore = state.getScore();
               double temp = startTemp + (endTemp - startTemp) * (lap - start) / timeLimit;
 
               if (Math.exp(-(newScore - currentScore) / temp) * RATE > RAND.next(RATE)) {
@@ -153,9 +150,83 @@ public class Solver {
       }
     }
     System.out.println("Loop count: " + count);
-
     return new State[] {state, bestState};
   }
+
+
+  public static State[] solve3(State state, long timeLimit, double startTemp, double endTemp,
+      long notUpdated) {
+    double bestScore = state.getScore();
+    double currentScore = bestScore;
+
+    int n = state.familySize();
+
+    long start = System.currentTimeMillis();
+    long lap = start;
+    long lastUpdated = start;
+
+    int[] fa = new int[n];
+    for (int i = 0; i < n; i++) {
+      fa[i] = i;
+    }
+    int[][] da = new int[n][];
+    int fp = 0;
+    for (int[] c : state.getCand()) {
+      da[fp++] = Arrays.copyOf(c, 6);
+    }
+
+    State bestState = state.clone();
+
+    int count = 0;
+    outer: while (true) {
+      shuffle(fa);
+      for (int i = 0; i + 2 < n; i += 3) {
+        int family1 = fa[i + 0];
+        int family2 = fa[i + 1];
+        int family3 = fa[i + 2];
+        for (int newDay1 : da[family1]) {
+          for (int newDay2 : da[family2]) {
+            for (int newDay3 : da[family3]) {
+              if (lap - lastUpdated >= notUpdated
+                  || (lap = System.currentTimeMillis()) - start >= timeLimit) {
+                break outer;
+              }
+              count++;
+
+              int[] attend = state.getAttend();
+              int oldDay1 = attend[family1];
+              int oldDay2 = attend[family2];
+              int oldDay3 = attend[family3];
+              state.change(family1, newDay1);
+              state.change(family2, newDay2);
+              state.change(family3, newDay3);
+
+              double newScore = state.getScore();
+              double temp = startTemp + (endTemp - startTemp) * (lap - start) / timeLimit;
+
+              if (Math.exp(-(newScore - currentScore) / temp) * RATE > RAND.next(RATE)) {
+                currentScore = newScore;
+              } else {
+                state.change(family1, oldDay1);
+                state.change(family2, oldDay2);
+                state.change(family3, oldDay3);
+              }
+
+              if (currentScore < bestScore) {
+                bestState = state.clone();
+                bestScore = currentScore;
+                lastUpdated = lap;
+                System.out.printf("High Score!!: %.3f%n", bestScore);
+              }
+            }
+          }
+        }
+      }
+    }
+    System.out.println("Loop count: " + count);
+    return new State[] {state, bestState};
+  }
+
 
   public static void shuffle(int[] a) {
     for (int i = 0, n = a.length; i < n; i++) {

@@ -27,31 +27,35 @@ public class Santa2019 {
   // private static double START_TEMP = 7;
   // private static double END_TEMP = 1;
 
-  private static long TIME_LIMIT = 60000;
-  private static long NOT_UPDATED = 20000;
-  private static double START_TEMP = 15;
+  private static long TIME_LIMIT = 120000;
+  private static long NOT_UPDATED = 30000;
+  private static double START_TEMP = 5;
   private static double START_TEMP2 = 5;
-  private static double END_TEMP = 0.3;
+  private static double END_TEMP = 1;
 
   public static void main(String[] args) throws IOException {
     Path inputPath = Paths.get("data/family_data.csv");
-    Path outputPath = Paths.get("data/submission_1575145069860_71887.csv");
+    Path outputPath = Paths.get("data/submission_1575167499714_71181.csv");
     int[][] input = readInput(inputPath);
     int[] output = readOutput(outputPath);
     // output = initOutput(output.length);
     State state = new State(input, output);
 
-    double bestScore = state.getScore(true);
+    double bestScore = state.getScore();
     for (int e = 0;; e++) {
-      boolean main = e % 3 == 0;
-
       System.out.printf("***** Epoch: %d *****%n", e);
-      State[] states = Solver.solve2(state, TIME_LIMIT, main ? START_TEMP2 : START_TEMP, END_TEMP,
-          NOT_UPDATED, true);
-      if (states[0].getScore(true) <= State.INF / 10) {
+      State[] states;
+      if (e % 2 == 0) {
+        states = Solver.solve3(state, TIME_LIMIT, START_TEMP2, END_TEMP, NOT_UPDATED);
+      } else if (e % 2 == 1) {
+        states = Solver.solve(state, TIME_LIMIT, START_TEMP, END_TEMP, NOT_UPDATED);
+      } else {
+        states = Solver.solve2(state, TIME_LIMIT, START_TEMP, END_TEMP, NOT_UPDATED);
+      }
+      if (states[0].getScore() <= State.INF / 10) {
         state = states[0];
       }
-      double score = states[1].getScore(true);
+      double score = states[1].getScore();
 
       dump(input, state);
 
@@ -105,7 +109,7 @@ public class Santa2019 {
       sb.append(i + ":" + occ[i] + ", ");
     }
     sb.append("\n");
-    sb.append(String.format("Current score: %.3f%n", state.getScore(true)));
+    sb.append(String.format("Current score: %.3f%n", state.getScore()));
     System.out.print(sb);
   }
 

@@ -31,6 +31,7 @@ public class State {
   private final int[][] state;
 
   private int currentCost;
+  private int overflow = 0;
 
   public State(int[][] input, int[] output) {
     this.costs = input2costs(input);
@@ -51,6 +52,7 @@ public class State {
     this.state = new int[][] {Arrays.copyOf(state.state[0], state.state[0].length),
         Arrays.copyOf(state.state[1], state.state[1].length)};
     this.currentCost = state.currentCost;
+    this.overflow = state.overflow;
   }
 
   public State clone() {
@@ -58,53 +60,60 @@ public class State {
   }
 
 
-  public double getScore(boolean flg) {
+  public double getScore() {
+    if (overflow > 0) {
+      return INF;
+    }
     double penalty = 0;
     for (int d = 1; d <= MAX_DAY; d++) {
       int n = state[1][d];
-      if (n < OCCUPANCY_MIN || n > OCCUPANCY_MAX)
-        return INF;
       int m = state[1][Math.min(MAX_DAY, d + 1)];
       penalty += PENALTY_TABLE[n][m];
     }
 
+    return currentCost + penalty;
+  }
+
+  public double getModifiedScore() {
     double penalty2 = 0;
-    if (!flg) {
-      int margin = 50;
-      for (int d = 1; d <= MAX_DAY; d++) {
-        int n = state[1][d];
-        double diff = 0;
-        if (n < OCCUPANCY_MIN + margin) {
-          diff = OCCUPANCY_MIN + margin - n;
-        } else if (n > OCCUPANCY_MAX - margin) {
-          diff = n - (OCCUPANCY_MAX - margin);
-        }
-        penalty2 += diff * diff;
+    int margin = 50;
+    for (int d = 1; d <= MAX_DAY; d++) {
+      int n = state[1][d];
+      double diff = 0;
+      if (n < OCCUPANCY_MIN + margin) {
+        diff = OCCUPANCY_MIN + margin - n;
+      } else if (n > OCCUPANCY_MAX - margin) {
+        diff = n - (OCCUPANCY_MAX - margin);
       }
+      penalty2 += diff * diff;
     }
-    return currentCost + penalty2 / 10 + penalty;
+    return getScore() + penalty2 / 10;
   }
 
-  public boolean check(int family, int newDay) {
+  public void change(int family, int newDay) {
     int oldDay = state[0][family];
-    int people = costs[family][0];
-    if (state[1][oldDay] < OCCUPANCY_MIN || state[1][newDay] + people > OCCUPANCY_MAX) {
-      return false;
+    if (newDay == oldDay) {
+      return;
     }
-    return true;
-  }
+    int people = costs[family][0];
+    if (state[1][oldDay] >= OCCUPANCY_MIN && state[1][oldDay] - people < OCCUPANCY_MIN) {
+      overflow++;
+    }
+    if (state[1][newDay] <= OCCUPANCY_MAX && state[1][newDay] + people > OCCUPANCY_MAX) {
+      overflow++;
+    }
+    if (state[1][oldDay] > OCCUPANCY_MAX && state[1][oldDay] - people <= OCCUPANCY_MAX) {
+      overflow--;
+    }
+    if (state[1][newDay] < OCCUPANCY_MIN && state[1][newDay] + people >= OCCUPANCY_MIN) {
+      overflow--;
+    }
 
-  public boolean change(int family, int newDay) {
-    int oldDay = state[0][family];
-    int people = costs[family][0];
-    if (state[1][oldDay] < OCCUPANCY_MIN || state[1][newDay] + people > OCCUPANCY_MAX) {
-      return false;
-    }
+
     state[0][family] = newDay;
     state[1][oldDay] -= people;
     state[1][newDay] += people;
     currentCost += costs[family][newDay] - costs[family][oldDay];
-    return true;
   }
 
   public int familySize() {
